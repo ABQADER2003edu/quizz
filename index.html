@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>منصة الاختبارات الرقمية</title>
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
     <style>
         :root {
             --primary: #2563eb;
@@ -26,81 +28,91 @@
             padding: 2rem;
             border-radius: 15px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-            width: 90%;
-            max-width: 800px;
+            width: 95%;
+            max-width: 850px;
         }
         .header { text-align: center; margin-bottom: 2rem; }
         .upload-section {
-            border: 2px dashed #cbd5e1;
-            padding: 2rem;
+            border: 3px dashed #cbd5e1;
+            padding: 3rem;
             text-align: center;
-            border-radius: 10px;
-            cursor: pointer;
-        }
-        .quiz-section { display: none; }
-        .question-box { margin-bottom: 1.5rem; }
-        .question-text { font-size: 1.2rem; font-weight: bold; margin-bottom: 1rem; color: #1e293b; }
-        .en-text { display: block; font-size: 1rem; color: #64748b; direction: ltr; text-align: left; margin-bottom: 5px; }
-        .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .option-btn {
-            padding: 1rem;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            background: white;
+            border-radius: 15px;
             cursor: pointer;
             transition: 0.3s;
-            text-align: center;
-            font-size: 1rem;
         }
-        .option-btn:hover { background-color: #f1f5f9; border-color: var(--primary); }
-        .correct { background-color: var(--success) !important; color: white; }
-        .wrong { background-color: var(--danger) !important; color: white; }
+        .upload-section:hover { border-color: var(--primary); background: #f1f5f9; }
+        .quiz-section { display: none; }
+        .question-box { margin-bottom: 1.5rem; }
+        .question-text { font-size: 1.1rem;  margin-bottom: 1.5rem;  line-height: 1.4; color: #64748b;}
+        .en-text { display: block; font-size: 1.3rem; color: #1e293b; font-weight: bold; direction: ltr; text-align: left; margin-bottom: 10px; border-left: 4px solid #cbd5e1; padding-left: 10px; }
+        .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .option-btn {
+            padding: 1.2rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            background: white;
+            cursor: pointer;
+            transition: 0.2s;
+            text-align: center;
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+        .option-btn:hover { border-color: var(--primary); background-color: #eff6ff; }
+        .correct { background-color: var(--success) !important; color: white; border-color: var(--success) !important; }
+        .wrong { background-color: var(--danger) !important; color: white; border-color: var(--danger) !important; }
         .explanation {
             margin-top: 1.5rem;
-            padding: 1rem;
-            border-radius: 8px;
+            padding: 1.2rem;
+            border-radius: 10px;
             display: none;
-            line-height: 1.6;
+            line-height: 1.7;
         }
-        .explanation.visible { display: block; background-color: #f0fdf4; border-right: 5px solid var(--success); }
-        .nav-btns { margin-top: 2rem; display: flex; justify-content: space-between; }
+        .explanation.visible { display: block; background-color: #f0fdf4; border-right: 6px solid var(--success); }
+        .nav-btns { margin-top: 2rem; display: flex; justify-content: center; }
         button.nav {
-            padding: 0.5rem 2rem;
+            padding: 0.8rem 3rem;
             border: none;
-            border-radius: 5px;
+            border-radius: 8px;
             background: var(--primary);
             color: white;
             cursor: pointer;
+            font-size: 1.1rem;
+            font-weight: bold;
         }
+        button.nav:disabled { background: #cbd5e1; cursor: not-allowed; }
         #fileInput { display: none; }
+        @media (max-width: 600px) { .options-grid { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div id="setup" class="header">
-        <h1>مرحباً بك في منصة الاختبارات</h1>
-        <p>قم برفع ملف الـ CSV الخاص بالأسئلة للبدء</p>
+        <h1>منصة اختبارات رقمية</h1>
+        <h3>Created By Abdallah Abdelqader</h3>
+        <p>يرجى اختيار ملف <strong>Excel (.xlsx)</strong> للبدء</p>
         <div class="upload-section" onclick="document.getElementById('fileInput').click()">
-            اضغط هنا لرفع الملف
-            <input type="file" id="fileInput" accept=".csv">
+            <img src="https://cdn-icons-png.flaticon.com/512/732/732220.png" width="50" alt="excel-icon"><br><br>
+            اضغط هنا لرفع ملف الأسئلة
+            <input type="file" id="fileInput" accept=".xlsx, .xls">
         </div>
     </div>
 
     <div id="quiz" class="quiz-section">
-        <div class="progress" id="progressText">السؤال 1 من ...</div>
-        <hr>
+        <div id="progressText" style="font-weight: bold; color: var(--primary); margin-bottom: 10px;"></div>
         <div class="question-box">
-            <span class="en-text" id="questionEn">Question in English</span>
-            <div class="question-text" id="questionAr">السؤال بالعربية</div>
-            <div class="options-grid" id="options">
-                </div>
+            <span class="en-text" id="questionEn"></span>
+            <div class="question-text" id="questionAr"></div>
+            <div class="options-grid" id="options"></div>
         </div>
+        
         <div id="explanationBox" class="explanation">
-            <strong>الشرح:</strong> <span id="expText"></span>
+            <div id="statusLabel" style="font-weight: bold; margin-bottom: 5px;"></div>
+            <span id="expText"></span>
         </div>
+
         <div class="nav-btns">
-            <button class="nav" onclick="nextQuestion()">السؤال التالي</button>
+            <button id="nextBtn" class="nav" onclick="nextQuestion()" disabled>السؤال التالي</button>
         </div>
     </div>
 </div>
@@ -112,29 +124,44 @@
     document.getElementById('fileInput').addEventListener('change', function(e) {
         const file = e.target.files[0];
         const reader = new FileReader();
+
         reader.onload = function(event) {
-            parseCSV(event.target.result);
+            const data = new Uint8Array(event.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            
+            // قراءة أول ورقة عمل في ملف الإكسيل
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            
+            // تحويل البيانات إلى JSON مع تجاهل الصف الأول (العناوين)
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            
+            processData(jsonData);
         };
-        reader.readAsText(file, 'UTF-8');
+        reader.readAsArrayBuffer(file);
     });
 
-    function parseCSV(text) {
-        const lines = text.split('\n');
-        // تخطي الهيدر وتحليل الأسطر
-        for (let i = 1; i < lines.length; i++) {
-            const cols = lines[i].split(','); 
-            if (cols.length < 5) continue;
-            
+    function processData(data) {
+        // نبدأ من i=1 لتجاهل الهيدر
+        for (let i = 1; i < data.length; i++) {
+            const row = data[i];
+            if (!row || row.length < 5) continue;
+
             questions.push({
-                en: cols[1],
-                ar: cols[2],
-                options: [cols[3], cols[4], cols[5], cols[6]],
-                correct: cols[7].trim(),
-                expCorrect: cols[8],
-                expWrong: cols[9]
+                en: row[1], // Question (Fill in the blank)
+                ar: row[2], // السؤال بالعربية
+                options: [row[3], row[4], row[5], row[6]], // Option A, B, C, D
+                correct: row[7] ? row[7].toString().trim().toUpperCase() : "", // Correct Answer
+                expCorrect: row[8], // شرح الإجابة الصحيحة
+                expWrong: row[9]   // شرح الإجابة الخاطئة
             });
         }
-        startQuiz();
+        
+        if (questions.length > 0) {
+            startQuiz();
+        } else {
+            alert("الملف فارغ أو غير متوافق مع التنسيق المطلوب");
+        }
     }
 
     function startQuiz() {
@@ -145,39 +172,58 @@
 
     function showQuestion() {
         const q = questions[currentIndex];
+        document.getElementById('nextBtn').disabled = true;
         document.getElementById('progressText').innerText = `السؤال ${currentIndex + 1} من ${questions.length}`;
-        document.getElementById('questionEn').innerText = q.en;
-        document.getElementById('questionAr').innerText = q.ar;
+        document.getElementById('questionEn').innerText = q.en || "";
+        document.getElementById('questionAr').innerText = q.ar || "";
         document.getElementById('explanationBox').classList.remove('visible');
         
         const optionsDiv = document.getElementById('options');
         optionsDiv.innerHTML = '';
         
-        ['A', 'B', 'C', 'D'].forEach((letter, index) => {
-            const btn = document.createElement('button');
-            btn.className = 'option-btn';
-            btn.innerText = q.options[index];
-            btn.onclick = () => checkAnswer(btn, letter);
-            optionsDiv.appendChild(btn);
+        const letters = ['A', 'B', 'C', 'D'];
+        letters.forEach((letter, index) => {
+            if (q.options[index]) {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.innerText = `${letter}) ${q.options[index]}`;
+                btn.onclick = () => checkAnswer(btn, letter);
+                optionsDiv.appendChild(btn);
+            }
         });
     }
 
     function checkAnswer(btn, choice) {
         const q = questions[currentIndex];
         const allBtns = document.querySelectorAll('.option-btn');
+        const expBox = document.getElementById('explanationBox');
+        const statusLabel = document.getElementById('statusLabel');
+        
         allBtns.forEach(b => b.style.pointerEvents = 'none');
+        document.getElementById('nextBtn').disabled = false;
 
         if (choice === q.correct) {
             btn.classList.add('correct');
-            document.getElementById('expText').innerText = q.expCorrect;
+            statusLabel.innerText = "إجابة صحيحة! 🎉";
+            statusLabel.style.color = "var(--success)";
+            document.getElementById('expText').innerText = q.expCorrect || "أحسنت!";
+            expBox.style.backgroundColor = "#f0fdf4";
+            expBox.style.borderRightColor = "var(--success)";
         } else {
             btn.classList.add('wrong');
-            document.getElementById('expText').innerText = q.expWrong;
-            // تلوين الإجابة الصحيحة
+            statusLabel.innerText = "للأسف، إجابة خاطئة";
+            statusLabel.style.color = "var(--danger)";
+            document.getElementById('expText').innerText = q.expWrong || "";
+            expBox.style.backgroundColor = "#fef2f2";
+            expBox.style.borderRightColor = "var(--danger)";
+            
+            // إظهار الإجابة الصحيحة
             const correctIndex = ['A', 'B', 'C', 'D'].indexOf(q.correct);
-            allBtns[correctIndex].classList.add('correct');
+            if (correctIndex !== -1) {
+                allBtns[correctIndex].classList.add('correct');
+            }
         }
-        document.getElementById('explanationBox').classList.add('visible');
+        expBox.classList.add('visible');
     }
 
     function nextQuestion() {
@@ -185,7 +231,7 @@
             currentIndex++;
             showQuestion();
         } else {
-            alert('انتهى الاختبار!');
+            alert('تم الانتهاء من جميع الأسئلة!');
             location.reload();
         }
     }
