@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>منصة الاختبارات المتقدمة</title>
+    <title>منصة الاختبارات الرقمية</title>
     <!-- Fonts -->
     <link
       href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;900&display=swap"
@@ -477,7 +477,7 @@
       <header>
         <div class="brand">
           <i class="fas fa-graduation-cap"></i>
-          <span>منصة الاختبارات</span>
+          <span>منصة الأختبارات الرقمية</span>
         </div>
         <div id="loading" style="display: none; font-size: 0.9rem">
           <i class="fas fa-spinner fa-spin"></i> جاري التحميل...
@@ -487,10 +487,27 @@
         </div>
       </header>
 
-      <!-- 1. Setup/Upload Screen -->
-      <div id="view-setup" class="view active">
+      <!-- 1. Intro Screen (Mandatory) -->
+    <div id="view-intro" class="view">
+        <div style="text-align: center; margin-top: 3rem;">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">الدعوة ي هندسة 🙂</div>
+            <h2 style="margin-bottom: 2rem; color: var(--primary);">🙂</h2>
+            
+            <div style="max-width: 500px; margin: 0 auto; text-align: right;">
+                <label style="font-weight: bold; font-size: 1.2rem; display: block; margin-bottom: 1rem;">الدعوة يا هندسة ؟</label>
+                <textarea id="introAnswer" class="note-input" placeholder="اكتب إجابتك هنا..." style="min-height: 80px;"></textarea>
+                
+                <button class="btn btn-primary" onclick="submitIntro()" style="width: 100%; justify-content: center; margin-top: 1rem;">
+                    بدء الاختبار <i class="fas fa-arrow-left" style="margin-right: 5px;"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. Setup/Upload Screen -->
+    <div id="view-setup" class="view active">
         <h2 style="text-align: center; margin-bottom: 2rem">
-          مرحباً بك في اختبارك
+          مرحباً بك في منصة الأختبارات الرقمية
         </h2>
 
         <div
@@ -516,7 +533,6 @@
           "
         >
           <p>أو استخدم رابط مباشر للاختبار</p>
-          <small>ex: domain.com?exam_url=...</small>
         </div>
       </div>
 
@@ -797,6 +813,40 @@
 
       // --- Quiz Logic ---
       function startQuiz() {
+        // Go to Intro first
+        switchView("view-intro");
+      }
+
+      async function submitIntro() {
+          const answer = document.getElementById('introAnswer').value.trim();
+          if (!answer) {
+              alert("يرجى الإجابة على السؤال أولاً!");
+              return;
+          }
+
+          // User requested attempting to POST to this URL directly
+          const sheetUrl = "https://docs.google.com/spreadsheets/d/1pNyGTM9injshX1hRNF61EQal_SsYc7k43tZf_V9Qhms/edit";
+          
+          try {
+              // Attempt to send data (Best Effort)
+              await fetch(sheetUrl, {
+                  method: 'POST',
+                  mode: 'no-cors',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ 
+                      timestamp: new Date().toISOString(),
+                      answer: answer 
+                  })
+              });
+              console.log("Answer transmission attempted.");
+          } catch (e) {
+              console.log("Transmission failed (expected for direct link).");
+          }
+
+          initQuizSession();
+      }
+
+      function initQuizSession() {
         state.startTime = new Date();
         state.currentIndex = 0;
         state.userAnswers = {};
