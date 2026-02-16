@@ -16,8 +16,7 @@
     />
     <!-- Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
     ...
 
@@ -186,6 +185,7 @@
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 1rem;
+        text-align: left;
       }
       @media (max-width: 600px) {
         .options-grid {
@@ -656,21 +656,33 @@
       });
 
       // --- Data Loading ---
-      async function loadExamFromUrl(url) {
+    async function loadExamFromUrl(url) {
         showLoading(true);
         try {
-          // Using a proxy or direct fetch depending on CORS. Assuming direct fetch works for demo or CORS allowed.
-          // For arraybuffer (binary excel)
-          const response = await fetch(url);
-          if (!response.ok) throw new Error("Network response was not ok");
-          const arrayBuffer = await response.arrayBuffer();
-          parseExcel(arrayBuffer);
+            // Handle Google Drive direct link conversion if needed, but the user might already provide a direct link.
+            // We'll use a CORS proxy to avoid CORS errors on client-side fetch.
+            // Using allorigins.win as a free proxy.
+            
+            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+            
+            const response = await fetch(proxyUrl);
+            if (!response.ok) throw new Error("Network response was not ok");
+            const arrayBuffer = await response.arrayBuffer();
+            parseExcel(arrayBuffer);
         } catch (error) {
-          console.error(error);
-          alert("فشل تحميل الاختبار من الرابط. يرجى التأكد من صحة الرابط.");
-          showLoading(false);
+            console.error(error);
+            // Fallback: Try direct fetch in case proxy fails or CORS is actually allowed
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error("Direct fetch failed");
+                const arrayBuffer = await response.arrayBuffer();
+                parseExcel(arrayBuffer);
+            } catch (retryError) {
+                 alert("فشل تحميل الاختبار. تأكد من أن الرابط مباشر ويسمح بالوصول العام.\n" + url);
+                 showLoading(false);
+            }
         }
-      }
+    }
 
       function handleFileUpload(e) {
         const file = e.target.files[0];
@@ -951,40 +963,61 @@
         renderReview(type);
       }
 
-      // --- PDF Export ---
     // --- PDF Export ---
     function exportWrapper() {
-        const element = document.getElementById('view-result');
-        const originalBtn = element.querySelector('.btn-secondary'); // Hide "New Quiz" button
-        const exportBtn = element.querySelector('button[onclick="exportWrapper()"]');
-        
-        if (originalBtn) originalBtn.style.display = 'none';
-        if (exportBtn) exportBtn.style.display = 'none';
+        const element = document.createElement('div');
+        element.style.padding = '20px';
+        element.style.fontFamily = 'Tajawal, sans-serif';
+        element.dir = 'rtl';
 
-        // Show all items for PDF
-        const tabs = document.querySelector('.filter-tabs');
-        if(tabs) tabs.style.display = 'none';
-        
-        // Force show all wrong answers if filtered
-        renderReview('wrong'); 
+        let contentHtml = `
+            <div style="text-align:center; margin-bottom: 20px;">
+                <h1 style="color:#4f46e5;">تقرير الأخطاء</h1>
+                <h3 style="color:#6b7280;">النتيجة: ${document.getElementById('finalScore').innerText}%</h3>
+                <hr style="border:1px solid #e5e7eb;">
+            </div>
+        `;
 
-        html2canvas(element, { scale: 2 }).then(canvas => {
-            const imgData = canvas.toDataURL('image/png');
-            const { jsPDF } = window.jspdf;
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            const imgProps = pdf.getImageProperties(imgData);
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-            
-            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-            pdf.save("exam-report.pdf");
-
-            // Restore UI
-            if (originalBtn) originalBtn.style.display = 'inline-block';
-            if (exportBtn) exportBtn.style.display = 'inline-block';
-            if (tabs) tabs.style.display = 'flex';
-            filterReview('all', document.querySelector('.filter-tab')); // Reset filter
+        let hasMistakes = false;
+        state.questions.forEach((q, idx) => {
+            if (state.userAnswers[idx] !== q.correct) {
+                hasMistakes = true;
+                contentHtml += `
+                    <div style="margin-bottom: 20px; border-bottom: 1px solid #e5e7eb; padding-bottom: 15px; page-break-inside: avoid;">
+                        <div style="font-weight:bold; margin-bottom:5px; color:#1f2937;">سؤال ${idx + 1}:</div>
+                        <div style="direction:ltr; text-align:left; background:#f9fafb; padding:10px; border-radius:5px; margin-bottom:10px; font-weight:600;">
+                            ${q.en}
+                        </div>
+                        <div style="margin-bottom:5px; color:#ef4444;">
+                            <strong>إجابتك:</strong> <span style="font-family:sans-serif;">${state.userAnswers[idx] || "لا يوجد"}</span>
+                        </div>
+                        <div style="margin-bottom:5px; color:#10b981;">
+                            <strong>الإجابة الصحيحة:</strong> <span style="font-family:sans-serif;">${q.correct}) ${q.options[q.correct]}</span>
+                        </div>
+                        <div style="font-size:0.9em; color:#6b7280; margin-top:5px;">
+                            <strong>الشرح:</strong> ${q.expWrong || "لا يوجد شرح"}
+                        </div>
+                    </div>
+                `;
+            }
         });
+
+        if (!hasMistakes) {
+            alert("ممتاز! لا توجد أخطاء لتصديرها.");
+            return;
+        }
+
+        element.innerHTML = contentHtml;
+
+        const opt = {
+            margin:       10,
+            filename:     'exam-mistakes-report.pdf',
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2, useCORS: true },
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        html2pdf().set(opt).from(element).save();
     }
 
       // --- Utilities ---
