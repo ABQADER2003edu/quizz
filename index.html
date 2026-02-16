@@ -658,28 +658,58 @@
       // --- Data Loading ---
     async function loadExamFromUrl(url) {
         showLoading(true);
+
+        // helper to extract Drive ID
+        function getDriveId(input) {
+            const match = input.match(/[-\w]{25,}/);
+            return match ? match[0] : null;
+        }
+
         try {
-            // Handle Google Drive direct link conversion if needed, but the user might already provide a direct link.
-            // We'll use a CORS proxy to avoid CORS errors on client-side fetch.
-            // Using allorigins.win as a free proxy.
+            let targetUrl = url;
+            const driveId = getDriveId(url);
+
+            // If it looks like a Google Drive ID or URL, normalize it to the export format
+            if (driveId && (url.includes('drive.google.com') || url.includes('docs.google.com'))) {
+                targetUrl = `https://drive.google.com/uc?export=download&id=${driveId}`;
+            }
+
+            // Try Primary Proxy (corsproxy.io is often stable for binaries)
+            // Note: We intentionally do NOT encodeURIComponent for corsproxy.io based on its usage, 
+            // but for safety with query params, we usually should. 
+            // However, standard usage often links directly: https://corsproxy.io/?https://...
+            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
             
-            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-            
+            console.log("Attempting load via:", proxyUrl);
+
             const response = await fetch(proxyUrl);
-            if (!response.ok) throw new Error("Network response was not ok");
+            if (!response.ok) throw new Error("Proxy response not ok: " + response.status);
+            
             const arrayBuffer = await response.arrayBuffer();
             parseExcel(arrayBuffer);
+
         } catch (error) {
-            console.error(error);
-            // Fallback: Try direct fetch in case proxy fails or CORS is actually allowed
+            console.error("Primary proxy failed, trying fallback...", error);
+            
+            // Fallback: allorigins
             try {
-                const response = await fetch(url);
-                if (!response.ok) throw new Error("Direct fetch failed");
-                const arrayBuffer = await response.arrayBuffer();
-                parseExcel(arrayBuffer);
-            } catch (retryError) {
-                 alert("فشل تحميل الاختبار. تأكد من أن الرابط مباشر ويسمح بالوصول العام.\n" + url);
-                 showLoading(false);
+                let targetUrl = url; 
+                // re-evaluate drive ID for fallback
+                const driveId = getDriveId(url);
+                if (driveId && (url.includes('drive.google.com') || url.includes('docs.google.com'))) {
+                    targetUrl = `https://drive.google.com/uc?export=download&id=${driveId}`;
+                }
+
+                const fallbackUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+                const res2 = await fetch(fallbackUrl);
+                if (!res2.ok) throw new Error("Fallback failed");
+                const buf2 = await res2.arrayBuffer();
+                parseExcel(buf2);
+            } catch (finalError) {
+                console.error(finalError);
+                alert("تعذر تحميل الملف. \nيرجى التأكد من أن ملف Google Drive متاح للعامة (Public/Anyone with link).\n" + 
+                      "الرابط المستخدم: " + url);
+                showLoading(false);
             }
         }
     }
