@@ -656,61 +656,82 @@
       });
 
       // --- Data Loading ---
-    async function loadExamFromUrl(url) {
+    async function loadExamFromUrl(input) {
         showLoading(true);
 
-        // helper to extract Drive ID
-        function getDriveId(input) {
-            const match = input.match(/[-\w]{25,}/);
+        // helper to extract Drive/Sheet ID
+        function getDriveId(str) {
+            const match = str.match(/[-\w]{25,}/);
             return match ? match[0] : null;
         }
 
+        const sheetId = getDriveId(input);
+        if (!sheetId) {
+            alert("لم يتم العثور على معرّف ملف صحيح (ID) في الرابط.");
+            showLoading(false);
+            return;
+        }
+
+        // Construct Google Sheets CSV URL (GViz API)
+        // tqx=out:csv -> Output as CSV
+        // sheet=... -> Optional, defaults to first sheet
+        const gvizUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv`;
+        
+        console.log("Fetching CSV from:", gvizUrl);
+
         try {
-            let targetUrl = url;
-            const driveId = getDriveId(url);
-
-            // If it looks like a Google Drive ID or URL, normalize it to the export format
-            if (driveId && (url.includes('drive.google.com') || url.includes('docs.google.com'))) {
-                targetUrl = `https://drive.google.com/uc?export=download&id=${driveId}`;
-            }
-
-            // Try Primary Proxy (corsproxy.io is often stable for binaries)
-            // Note: We intentionally do NOT encodeURIComponent for corsproxy.io based on its usage, 
-            // but for safety with query params, we usually should. 
-            // However, standard usage often links directly: https://corsproxy.io/?https://...
-            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+            // Try direct fetch first (Google Sheets CSV often supports CORS for published sheets)
+            const response = await fetch(gvizUrl);
+            if (!response.ok) throw new Error("Direct fetch failed: " + response.status);
             
-            console.log("Attempting load via:", proxyUrl);
+            const csvText = await response.text();
+            parseCSV(csvText);
 
-            const response = await fetch(proxyUrl);
-            if (!response.ok) throw new Error("Proxy response not ok: " + response.status);
+        } catch (err) {
+            console.warn("Direct GViz fetch failed, trying proxy...", err);
             
-            const arrayBuffer = await response.arrayBuffer();
-            parseExcel(arrayBuffer);
-
-        } catch (error) {
-            console.error("Primary proxy failed, trying fallback...", error);
+            // Fallback: corsproxy.io for CSV text
+            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(gvizUrl)}`;
             
-            // Fallback: allorigins
             try {
-                let targetUrl = url; 
-                // re-evaluate drive ID for fallback
-                const driveId = getDriveId(url);
-                if (driveId && (url.includes('drive.google.com') || url.includes('docs.google.com'))) {
-                    targetUrl = `https://drive.google.com/uc?export=download&id=${driveId}`;
-                }
-
-                const fallbackUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
-                const res2 = await fetch(fallbackUrl);
-                if (!res2.ok) throw new Error("Fallback failed");
-                const buf2 = await res2.arrayBuffer();
-                parseExcel(buf2);
-            } catch (finalError) {
-                console.error(finalError);
-                alert("تعذر تحميل الملف. \nيرجى التأكد من أن ملف Google Drive متاح للعامة (Public/Anyone with link).\n" + 
-                      "الرابط المستخدم: " + url);
+                const res2 = await fetch(proxyUrl);
+                if (!res2.ok) throw new Error("Proxy fetch failed");
+                const csvText2 = await res2.text();
+                parseCSV(csvText2);
+            } catch (finalErr) {
+                console.error(finalErr);
+                alert("تعذر تحميل البيانات من Google Sheets.\n" +
+                      "تأكد من أن الملف 'منشور على الويب' (File > Share > Publish to web) أو متاح للعامة.\n" + 
+                      "ID: " + sheetId);
                 showLoading(false);
             }
+        }
+    }
+
+    function parseCSV(csvText) {
+        try {
+            const workbook = XLSX.read(csvText, { type: 'string' });
+            const firstSheet = workbook.SheetNames[0];
+            const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheet], { header: 1 });
+            processQuestions(jsonData);
+        } catch (e) {
+            console.error(e);
+            alert("خطأ في قراءة البيانات (CSV parsing error).");
+            showLoading(false);
+        }
+    }
+
+    // Kept for file upload (binary)
+    function parseExcel(data) {
+        try {
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheet = workbook.SheetNames[0];
+            const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheet], { header: 1 });
+
+            processQuestions(jsonData);
+        } catch (e) {
+            alert("خطأ في قراءة ملف الإكسيل.");
+            showLoading(false);
         }
     }
 
