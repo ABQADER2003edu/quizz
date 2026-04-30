@@ -790,10 +790,10 @@
             en: row[1] || "",
             ar: row[2] || "",
             options: {
-              A: row[3],
-              B: row[4],
-              C: row[5],
-              D: row[6],
+              A: (row[3] !== undefined && row[3] !== null && row[3] !== "") ? String(row[3]) : null,
+              B: (row[4] !== undefined && row[4] !== null && row[4] !== "") ? String(row[4]) : null,
+              C: (row[5] !== undefined && row[5] !== null && row[5] !== "") ? String(row[5]) : null,
+              D: (row[6] !== undefined && row[6] !== null && row[6] !== "") ? String(row[6]) : null,
             },
             correct: (row[7] || "").toString().trim().toUpperCase(),
             expCorrect: row[8] || "Excellent!",
@@ -873,7 +873,7 @@
                 ${["A", "B", "C", "D"]
                   .map((key) => {
                     const text = q.options[key];
-                    if (!text) return "";
+                    if (text === undefined || text === null || text === "") return "";
                     const isSelected =
                       state.userAnswers[state.currentIndex] === key;
                     return `
