@@ -895,19 +895,24 @@
           const TELEGRAM_CHAT_ID = "-1003832986122";
 
           if (TELEGRAM_BOT_TOKEN !== "YOUR_TELEGRAM_BOT_TOKEN" && TELEGRAM_CHAT_ID !== "YOUR_TELEGRAM_CHAT_ID") {
-              const telegramUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-              fetch(telegramUrl, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                      chat_id: TELEGRAM_CHAT_ID,
-                      text: `✨ دعوة جديدة قبل بدء الامتحان:\n\n${answer}`
+              const text = `✨ دعوة جديدة قبل بدء الامتحان:\n\n${answer}`;
+              const telegramUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${encodeURIComponent(TELEGRAM_CHAT_ID)}&text=${encodeURIComponent(text)}`;
+              
+              // محاولة إرسال باستخدام fetch (GET) وهي طريقة متوافقة جداً ولا تواجه مشاكل CORS Preflight
+              fetch(telegramUrl)
+                  .then(response => {
+                      if (!response.ok) {
+                          throw new Error('HTTP error ' + response.status);
+                      }
+                      console.log("Telegram message sent successfully in the background.");
                   })
-              }).then(() => {
-                  console.log("Telegram message sent successfully in the background.");
-              }).catch((err) => {
-                  console.error("Telegram background send error:", err);
-              });
+                  .catch((err) => {
+                      console.warn("Telegram standard GET send error, trying fallback with no-cors:", err);
+                      // محاولة إرسال احتياطية باستخدام no-cors لتخطي أي حظر من المتصفح أو قيود CORS
+                      fetch(telegramUrl, { mode: 'no-cors' })
+                          .then(() => console.log("Telegram message sent in the background via no-cors fallback."))
+                          .catch(e => console.error("Telegram fallback failed too:", e));
+                  });
           } else {
               console.log("Telegram configurations are not set yet.");
           }
