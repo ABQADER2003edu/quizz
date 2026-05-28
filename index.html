@@ -817,33 +817,100 @@
         switchView("view-intro");
       }
 
-      async function submitIntro() {
+      // دالة لفحص ما إذا كانت الإجابة عبارة عن دعوة أو أمنية طيبة
+      function isDua(text) {
+          if (!text) return false;
+          
+          // دالة لتهيئة النص العربي وتوحيده لتسهيل البحث
+          function normalizeArabic(str) {
+              return str
+                  .replace(/[أإآ]/g, 'ا')
+                  .replace(/ة/g, 'ه')
+                  .replace(/ى/g, 'ي')
+                  .replace(/[\u064B-\u0652]/g, '') // إزالة الحركات والتنوين
+                  .replace(/\s+/g, ' ')            // توحيد المسافات
+                  .trim()
+                  .toLowerCase();
+          }
+          
+          const normalizedText = normalizeArabic(text);
+          
+          // قائمة شاملة جداً بالكلمات والجذور المستخدمة في الدعاء والرجاء والتمنيات الطيبة
+          const keywords = [
+              'يارب', 'يا رب', 'ربنا', 'اللهم', 'ياالله', 'يا الله', 'الله', 'رب', 'الهي', 'إلهي',
+              'ان شاء الله', 'إن شاء الله', 'بالتوفيق', 'توفيق', 'يسر', 'سهل', 'بارك', 'يجزي', 'جزا', 
+              'يسعد', 'يعين', 'يحفظ', 'يكرم', 'يرزق', 'يغفر', 'يرحم', 'يشفي', 'يديم', 'امين', 'آمين',
+              'موفق', 'دعاء', 'دعوه', 'دعوات', 'خير', 'بركه', 'صحه', 'عافيه', 'سلامه', 'سعاده', 
+              'هدي', 'هدايه', 'قبول', 'تقبل', 'استجب', 'جنه', 'غفران', 'رحمه', 'ستر', 'رضا', 'رضي', 
+              'عفو', 'صالح', 'تساهيل', 'فرج', 'كرب', 'شفي', 'عاف', 'رحم', 'سدد', 'خطا', 'يسرها', 
+              'سهلها', 'ميسر', 'مسدد', 'مبارك', 'لطف', 'لطيف', 'رحيم', 'كريم', 'غفور', 'تواب', 
+              'مجيب', 'سميع', 'عليم', 'قريب', 'ودود', 'حي', 'قيوم', 'ذو الجلال', 'الكرام', 'مستعان',
+              'حماك', 'رعاك', 'وفقك', 'وفقكم', 'يسعدك', 'يسعدكم', 'يحفظك', 'يحفظكم', 'جزاك', 'جزاكم',
+              'يكرمك', 'يكرمكم', 'يعزك', 'يعزكم', 'بارك الله', 'تبارك', 'ما شاء الله', 'ماشاء الله',
+              'سعدك', 'فرحك', 'شرح', 'صدر', 'قلب', 'نور', 'عمر', 'يسر امورك', 'تيسير', 'تسهيل',
+              'نجاح', 'فلاح', 'صلاح', 'عافية', 'سلامة', 'خير وبركة', 'امين يارب', 'امين يا رب',
+              'يا رب العالمين', 'يارب العالمين', 'ياارحم الراحمين', 'يا ارحم الراحمين',
+              'اكرمك', 'اكرمكم', 'يرزقك', 'يرزقكم', 'يعطيك', 'يعطيكم'
+          ].map(normalizeArabic);
+          
+          return keywords.some(keyword => normalizedText.includes(keyword));
+      }
+
+      function submitIntro() {
           const answer = document.getElementById('introAnswer').value.trim();
           if (!answer) {
               alert("يرجى الإجابة على السؤال أولاً!");
               return;
           }
 
-          // User requested attempting to POST to this URL directly
-          const sheetUrl = "https://docs.google.com/spreadsheets/d/1pNyGTM9injshX1hRNF61EQal_SsYc7k43tZf_V9Qhms/edit";
-          
-          try {
-              // Attempt to send data (Best Effort)
-              await fetch(sheetUrl, {
-                  method: 'POST',
-                  mode: 'no-cors',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ 
-                      timestamp: new Date().toISOString(),
-                      answer: answer 
-                  })
-              });
-              console.log("Answer transmission attempted.");
-          } catch (e) {
-              console.log("Transmission failed (expected for direct link).");
+          // فحص ما إذا كان المدخل يحتوي على دعوة
+          if (!isDua(answer)) {
+              alert("يرجى كتابة دعوة صالحة يا هندسة للبدء! 🙂");
+              return;
           }
 
+          // بدء الامتحان فوراً دون انتظار إرسال البيانات
           initQuizSession();
+
+          // محاولة إرسال البيانات في الخلفية
+          // 1. إرسال إلى Google Sheet
+          const sheetUrl = "https://docs.google.com/spreadsheets/d/1pNyGTM9injshX1hRNF61EQal_SsYc7k43tZf_V9Qhms/edit";
+          fetch(sheetUrl, {
+              method: 'POST',
+              mode: 'no-cors',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                  timestamp: new Date().toISOString(),
+                  answer: answer 
+              })
+          }).then(() => {
+              console.log("Answer transmission to Google Sheet attempted.");
+          }).catch((e) => {
+              console.log("Google Sheet transmission failed (expected for direct link).");
+          });
+
+          // 2. إرسال إلى بوت تليجرام في الخلفية
+          // يرجى كتابة التوكن ومعرف الشات الخاص بك هنا
+          const TELEGRAM_BOT_TOKEN = "8559545884:AAHBRYDU4bpxT61QvWPxg-NRlghDLFKuPO8"; 
+          const TELEGRAM_CHAT_ID = "-1003832986122";
+
+          if (TELEGRAM_BOT_TOKEN !== "YOUR_TELEGRAM_BOT_TOKEN" && TELEGRAM_CHAT_ID !== "YOUR_TELEGRAM_CHAT_ID") {
+              const telegramUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+              fetch(telegramUrl, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                      chat_id: TELEGRAM_CHAT_ID,
+                      text: `✨ دعوة جديدة قبل بدء الامتحان:\n\n${answer}`
+                  })
+              }).then(() => {
+                  console.log("Telegram message sent successfully in the background.");
+              }).catch((err) => {
+                  console.error("Telegram background send error:", err);
+              });
+          } else {
+              console.log("Telegram configurations are not set yet.");
+          }
       }
 
       function initQuizSession() {
